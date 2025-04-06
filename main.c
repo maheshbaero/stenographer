@@ -13,6 +13,9 @@ int main(int argc, char *argv[]) {
     FILE *img_file;
     FILE *txt_file;
     int pass_len;
+    char *cipher_txt = malloc(1024U * 10U);
+    char *plain_txt = malloc(1024U * 10U);
+    char *key = malloc(16U);
 
     if (argc != 5) {
         return 1;
@@ -83,7 +86,19 @@ int main(int argc, char *argv[]) {
         return INVALID_PASS_LEN;
     }
     if (strcmp(argv[1], "E") == 0 || strcmp(argv[1], "e") == 0) {
-        int encode_status = encode_msg(img_file, txt_file, argv[4]);
+        key = encrypt_pass(argv[4]);
+        if (key == NULL) {
+            printf("failed to encrypt password\n");
+            return 1;
+        }
+
+        cipher_txt = encrypt_msg(txt_file, key);
+        if (cipher_txt == NULL) {
+            printf("Failed to encrypt message\n");
+            return 1;
+        }
+        
+        int encode_status = encode_msg(img_file, cipher_txt);
         if (encode_status != 0) {
             printf("encode failed\n");
             return EXIT_FAILURE;
@@ -92,13 +107,22 @@ int main(int argc, char *argv[]) {
             return EXIT_SUCCESS;
         }
     } else {
-        int decode_status = decode_msg(img_file, txt_file, argv[4]);
-        if (decode_status != 0) {
+        cipher_txt = decode_msg(img_file);
+        if (cipher_txt == NULL) {
             printf("decode failed\n");
             return EXIT_FAILURE;
+        }
+        key = encrypt_pass(argv[4]);
+        if (key == NULL) {
+            printf("Failed to decrypt password\n");
+            return EXIT_FAILURE;
+        }
+        plain_txt = decrypt_msg(cipher_txt, key, argv[3]);
+        if (plain_txt == NULL) {
+            printf("Decrypt failed\n");
+            return EXIT_FAILURE;
         } else {
-            printf("decoded successfully\n");
-            return EXIT_SUCCESS;
+            printf("success\n");
         }
     }
     

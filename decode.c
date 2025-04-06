@@ -8,89 +8,109 @@
 #include "limits.h"
 #include "error.h"
 
-int validate_decode_pass(FILE *img_file, char *pass) {
-    fseek(img_file, 0, SEEK_SET);  // Go to beginning of the image
+char *decode_msg(FILE *img_file) {
+    fseek(img_file, 0, SEEK_END);
+    long img_size = ftell(img_file);
 
-    // Step 1: Decode password length from first 8 bytes
-    unsigned char img_byte;
-    unsigned char pass_len = 0;
-
-    for (int i = 0; i < 8; ++i) {
-        if (fread(&img_byte, 1, 1, img_file) != 1) return 0;
-        pass_len <<= 1;
-        pass_len |= (img_byte & 0x01);
+    if (img_size < SIGNATURE_BITS) {
+        printf("Image file too small.\n");
+        return NULL;
     }
 
-    if (pass_len > 16) {
-        printf("Invalid password length in image.\n");
-        return INVALID_PASS_LEN;
-    }
+    // --- Step 1: Verify Signature at the end ---
+    fseek(img_file, -SIGNATURE_BITS, SEEK_END);
 
-    // Step 2: Decode password of length 'pass_len'
-    char decoded_pass[17] = {0}; // Max 16 chars + null
-    for (int i = 0; i < pass_len; ++i) {
+    const char *sig = SIGNATURE;
+    for (int i = 0; i < SIGNATURE_LEN; ++i) {
         unsigned char ch = 0;
-        for (int bit = 0; bit < 8; ++bit) {
-            if (fread(&img_byte, 1, 1, img_file) != 1) return 0;
-            ch <<= 1;
-            ch |= (img_byte & 0x01);
+        for (int bit = 7; bit >= 0; --bit) {
+            unsigned char img_byte;
+            if (fread(&img_byte, 1, 1, img_file) != 1) return NULL;
+            ch = (ch << 1) | (img_byte & 1);
         }
-        decoded_pass[i] = ch;
+        if (ch != sig[i]) {
+            printf("Signature mismatch. Not an encoded image.\n");
+            return NULL;
+        }
     }
 
-    // Step 3: Compare with provided password
-    return (strcmp(decoded_pass, pass) == 0);
-}
-
-int decode_msg(FILE *img_file, FILE *txt_file, char *pass) {
-    // Step 1: Validate password
-    if (!validate_decode_pass(img_file, pass)) {
-        printf("Password mismatch or invalid.\n");
-        return PASS_MISMATCH;
-    }
-
-    // Step 2: Reset pointer and read password length again
+    // --- Step 2: Extract length of gibrish (first 16 bits) ---
     fseek(img_file, 0, SEEK_SET);
+    unsigned short gibrish_len = 0;
 
-    unsigned char img_byte;
-    unsigned char pass_len = 0;
-
-    for (int i = 0; i < 8; ++i) {
-        fread(&img_byte, 1, 1, img_file);
-        pass_len <<= 1;
-        pass_len |= (img_byte & 0x01);
+    for (int bit = 15; bit >= 0; --bit) {
+        unsigned char img_byte;
+        if (fread(&img_byte, 1, 1, img_file) != 1) return NULL;
+        gibrish_len = (gibrish_len << 1) | (img_byte & 1);
     }
 
-    // Step 3: Skip password bytes
-    fseek(img_file, pass_len * 8, SEEK_CUR);
-
-    // Step 4: Read the message length (32 bits = 4 bytes)
-    uint32_t msg_len = 0;
-    for (int i = 0; i < 32; ++i) {
-        if (fread(&img_byte, 1, 1, img_file) != 1) {
-            printf("Failed to read message length.\n");
-            return INVALID_TXT_LEN;
-        }
-        msg_len <<= 1;
-        msg_len |= (img_byte & 0x01);
+    if (gibrish_len == 0 || gibrish_len > 10240) {
+        printf("Invalid message length.\n");
+        return NULL;
     }
 
-    printf("Decoded message length: %u bytes\n", msg_len);
+    // --- Step 3: Decode gibrish text ---
+    char *gibrish = malloc(gibrish_len + 1);
+    if (gibrish == NULL) {
+        printf("Memory allocation failed.\n");
+        return NULL;
+    }
 
-    // Step 5: Decode message (msg_len bytes)
-    for (uint32_t i = 0; i < msg_len; ++i) {
+    for (int i = 0; i < gibrish_len; ++i) {
         unsigned char ch = 0;
-        for (int bit = 0; bit < 8; ++bit) {
+        for (int bit = 7; bit >= 0; --bit) {
+            unsigned char img_byte;
             if (fread(&img_byte, 1, 1, img_file) != 1) {
-                printf("Failed to read message byte.\n");
-                return 1;
+                free(gibrish);
+                return NULL;
             }
-            ch <<= 1;
-            ch |= (img_byte & 0x01);
+            ch = (ch << 1) | (img_byte & 1);
         }
-        fputc(ch, txt_file);
+        gibrish[i] = ch;
     }
 
-    return 0;
+    gibrish[gibrish_len] = '\0';
+    return gibrish;
 }
 
+char* decrypt_msg(const char *cipher_txt, const char *key, const char *output_filename) {
+    if (!cipher_txt || !key || !output_filename) return NULL;
+
+    const char *xor_string = "ababababaa";
+    size_t key_len = strlen(key);
+    size_t xor_len = strlen(xor_string);
+
+    FILE *out_file = fopen(output_filename, "w");
+    if (!out_file) {
+        perror("Failed to open output file for writing");
+        return NULL;
+    }
+
+    size_t i = 0;
+    char ch;
+    while ((ch = cipher_txt[i]) != '\0') {
+        unsigned char byte = (unsigned char)ch;
+
+        byte ^= xor_string[i % xor_len];        // Reverse Step 2
+        byte ^= key[i % key_len];               // Reverse Step 1
+
+        fputc(byte, out_file);
+        i++;
+    }
+
+    fclose(out_file);
+
+    // Optional: also return the plain text
+    char *plain_txt = (char *)malloc(i + 1);
+    if (!plain_txt) return NULL;
+
+    for (size_t j = 0; j < i; ++j) {
+        unsigned char byte = (unsigned char)cipher_txt[j];
+        byte ^= xor_string[j % xor_len];
+        byte ^= key[j % key_len];
+        plain_txt[j] = byte;
+    }
+    plain_txt[i] = '\0';
+
+    return plain_txt;
+}
