@@ -14,5 +14,7 @@
 #define TXT_VALIDATION_FAIL 12U      // Text file failed validation
 #define NON_ENC_IMG  13U             // image provided is not encoded
 #define PASS_MISMATCH  13U           // image provided is not encoded
+#define ENC_FAIL  14U           // image provided is not encoded
+#define DEC_FAIL  15U           // image provided is not encoded
 
 #endif

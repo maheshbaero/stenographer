@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
         cipher_txt = encrypt_msg(txt_file, key);
         if (cipher_txt == NULL) {
             printf("Failed to encrypt message\n");
-            return 1;
+            return EXIT_FAILURE;
         }
         
         int encode_status = encode_msg(img_file, cipher_txt);
