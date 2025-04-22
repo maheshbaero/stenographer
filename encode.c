@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
-#include "stegno_interface.h"
-#include "limits.h"
-#include "error.h"
+#include "./stegno_interface.h"
+#include "./limits.h"
+#include "./error.h"
+
 
 char* encrypt_pass(const char* password) {
     const char *xor_key = "maheshbaero";

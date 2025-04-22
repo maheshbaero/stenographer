@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "stegno_interface.h": "c",
+        "stdlib.h": "c",
+        "error.h": "c",
+        "limits.h": "c",
+        "stdbool.h": "c",
+        "stdio.h": "c",
+        "math.h": "c"
+    }
+}

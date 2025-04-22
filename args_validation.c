@@ -3,9 +3,10 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
-#include "stegno_interface.h"
-#include "limits.h"
-#include "error.h"
+
+#include "./limits.h"
+#include "./error.h"
+#include "./stegno_interface.h"
 
 int validate_txt_file(FILE *txt_file) {
 
