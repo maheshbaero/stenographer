@@ -4,9 +4,9 @@
 #include <math.h>
 #include <string.h>
 #include <stdbool.h>
-#include "./limits.h"
-#include "./error.h"
-#include "./stegno_interface.h"
+#include "limits.h"
+#include "error.h"
+#include "stegno_interface.h"
 
 char *decode_msg(FILE *img_file) {
     fseek(img_file, 0, SEEK_END);

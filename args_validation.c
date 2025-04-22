@@ -3,10 +3,10 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
+#include "limits.h"
+#include "error.h"
+#include "stegno_interface.h"
 
-#include "./limits.h"
-#include "./error.h"
-#include "./stegno_interface.h"
 
 int validate_txt_file(FILE *txt_file) {
 
@@ -16,7 +16,7 @@ int validate_txt_file(FILE *txt_file) {
 
     if (size < 1U || size > MAX_TXT_LEN ) {
         printf("invalid image size (%lu)\n", size);
-        return 1; // validation failed
+        return 1; // validation failedz
     }
 
     return 0; // validation passed

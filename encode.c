@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
-#include "./stegno_interface.h"
-#include "./limits.h"
-#include "./error.h"
+#include "limits.h"
+#include "error.h"
+#include "stegno_interface.h"
 
 
 char* encrypt_pass(const char* password) {
